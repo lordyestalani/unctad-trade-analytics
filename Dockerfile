@@ -8,4 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "--version"]
+COPY src/ src/
+COPY sql/ sql/
+
+CMD ["python", "src/load_trade.py"]

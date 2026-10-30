@@ -18,5 +18,21 @@ services:
       retries: 10
       start_period: 10s
 
+  etl:
+    build: .
+    image: unctad-etl:local
+    profiles: ["etl"]
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./data/raw:/app/data/raw:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:

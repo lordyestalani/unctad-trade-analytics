@@ -6,7 +6,7 @@ A small data engineering and Power BI project using UNCTAD merchandise trade dat
 
 ## Project scope
 
-- Five countries, ten years, exports and imports: 100 observations in the planned reporting subset.
+- Five countries, ten years, exports and imports: 100 observations in the reporting subset.
 - Measures: trade value, annual growth, share of world trade, and calculated trade balance (exports minus imports).
 - Values are in millions of US dollars at current prices. Growth reflects nominal values, not changes in trade volumes alone.
 
@@ -14,18 +14,18 @@ A small data engineering and Power BI project using UNCTAD merchandise trade dat
 
 ```text
 Raw UNCTAD CSV -> Python ETL -> PostgreSQL -> Power BI Desktop
-                 (planned)    (Docker)      (Windows)
+                 (Docker)     (Docker)      (planned)
 ```
 
-Docker Compose currently runs PostgreSQL 17. A Dockerfile provides Python 3.12 with pandas for data preparation and Psycopg for PostgreSQL access. The CSV validation script is available; database loading and the Python Compose service will be added next. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer.
+Docker Compose runs PostgreSQL 17 and a one-off Python ETL service. Python 3.12 uses pandas to validate the CSV and Psycopg to load it. PostgreSQL stores its data in a named Docker volume. Power BI Desktop will run on the host computer.
 
 ## Data
 
 Source: [UNCTAD Data Centre](https://unctadstat.unctad.org/datacentre/), **Merchandise: Trade - Annual** (`US.TradeMerchTotal`).
 
-The original download is preserved at `data/raw/US_TradeMerchTotal.csv`. It contains 46,108 records covering 1948–2025 and 309 geographic entries, including countries and overlapping economy groups. The pipeline will select individual countries rather than sum those groups.
+The original download is preserved at `data/raw/US_TradeMerchTotal.csv`. It contains 46,108 records covering 1948–2025 and 309 geographic entries, including countries and overlapping economy groups. The pipeline selects individual countries rather than summing those groups.
 
-The selected 2015–2024 subset has 100 records, no missing values in the three measures, and no duplicate country–year–flow keys. Economy codes must be preserved as text. Source missing-value markers and footnotes will be retained during processing.
+The selected 2015–2024 subset has 100 records, no missing values in the three measures, and no duplicate country–year–flow keys. Economy and flow codes are preserved as text. Source missing-value markers and footnotes remain in the raw CSV; the reporting table stores the codes, labels, year, and three numeric measures.
 
 ## Run PostgreSQL locally
 
@@ -63,7 +63,7 @@ The Dockerfile uses the official `python:3.12-slim-bookworm` image with `/app` a
 
 ```powershell
 docker build -t unctad-etl:local .
-docker run --rm unctad-etl:local
+docker run --rm unctad-etl:local python --version
 ```
 
 Dependencies are pinned in `requirements.txt`. Psycopg uses the binary extra so no compiler or separate PostgreSQL client library installation is needed.
@@ -75,7 +75,7 @@ docker run --rm unctad-etl:local python -c "import pandas, psycopg; print('panda
 docker run --rm unctad-etl:local python -m pip check
 ```
 
-For now, the default command prints the Python version and exits. The image does not load data yet. No local Python installation is required.
+The default command runs `src/load_trade.py`; use Compose to supply its database settings and mount the raw data. No local Python installation is required. `.dockerignore` keeps local credentials, Git history, and data out of the build context.
 
 ## Validate the CSV
 
@@ -86,6 +86,24 @@ docker run --rm --mount "type=bind,source=$($PWD.Path),target=/app,readonly" unc
 ```
 
 The script selects the five countries for 2015–2024 and checks required columns, all 100 country–year–flow combinations, duplicate keys, matching codes and labels, and numeric measures without missing or infinite values. It retains the source columns, reads economy and flow codes as text, prints a summary, and exits with a nonzero status if validation fails. It does not write files or load PostgreSQL.
+
+## Load PostgreSQL
+
+```powershell
+docker compose run --build --rm etl
+```
+
+Compose starts PostgreSQL if needed and waits for it to become healthy. The ETL service runs only when explicitly requested; ordinary `docker compose up` starts just PostgreSQL.
+
+`src/load_trade.py` validates the CSV before connecting, creates the `trade` table from `sql/001_create_tables.sql` if needed, and loads all 100 records in one transaction. The raw directory is mounted read-only. The primary key is `(economy_code, year, flow_code)`; reruns update existing records instead of duplicating them. Database values use PostgreSQL `NUMERIC`.
+
+Verify the load (using your configured database and username):
+
+```powershell
+docker compose exec postgres psql -U unctad -d unctad -c "SELECT COUNT(*) FROM trade;"
+```
+
+Expected count: `100`, including after a second run. `trade_value_million_usd` is in millions of US dollars; `world_share_pct` and `growth_yoy_pct` are percentages, so `5` means 5%.
 
 ## Connection settings
 
@@ -98,9 +116,7 @@ For Power BI Desktop, use **Get data > PostgreSQL database** with:
 | Username | `unctad` |
 | Password | Your local `POSTGRES_PASSWORD` in `.env` |
 
-The database port binds only to `127.0.0.1`. If port 5432 is already in use, change `POSTGRES_PORT` in `.env` and use the new port in Power BI. The future ETL container will connect to host `postgres` on port `5432` inside the Compose network.
-
-The database is initially empty; the reporting tables will be created during the ETL milestone.
+The database port binds only to `127.0.0.1`. If port 5432 is already in use, change `POSTGRES_PORT` in `.env` and use the new port in Power BI. The ETL container connects to host `postgres` on port `5432` inside the Compose network.
 
 ## Useful commands
 
@@ -117,10 +133,8 @@ Database credentials are initialized on the first start with an empty volume. Ed
 
 ## Next steps
 
-1. Add the Python Compose service to run the validated reporting subset.
-2. Create PostgreSQL tables and a repeatable load without duplicate records.
-3. Add SQL reporting views and verify totals.
-4. Build a Power BI report with export trends, country comparisons, and trade balances.
-5. Document findings and add dashboard screenshots.
+1. Add SQL reporting views and verify totals.
+2. Build a Power BI report with export trends, country comparisons, and trade balances.
+3. Document findings and add dashboard screenshots.
 
 This README will be updated as each milestone is implemented.
