@@ -17,7 +17,7 @@ Raw UNCTAD CSV -> Python ETL -> PostgreSQL -> Power BI Desktop
                  (planned)    (Docker)      (Windows)
 ```
 
-Docker Compose currently runs PostgreSQL 17. A Dockerfile provides Python 3.12 with pandas for data preparation and Psycopg for PostgreSQL access. ETL code and the Compose service will be added next. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer.
+Docker Compose currently runs PostgreSQL 17. A Dockerfile provides Python 3.12 with pandas for data preparation and Psycopg for PostgreSQL access. The CSV validation script is available; database loading and the Python Compose service will be added next. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer.
 
 ## Data
 
@@ -77,6 +77,16 @@ docker run --rm unctad-etl:local python -m pip check
 
 For now, the default command prints the Python version and exits. The image does not load data yet. No local Python installation is required.
 
+## Validate the CSV
+
+Run the script using the Python image and a read-only mount of the repository:
+
+```powershell
+docker run --rm --mount "type=bind,source=$($PWD.Path),target=/app,readonly" unctad-etl:local python src/validate_csv.py
+```
+
+The script selects the five countries for 2015–2024 and checks required columns, all 100 country–year–flow combinations, duplicate keys, matching codes and labels, and numeric measures without missing or infinite values. It retains the source columns, reads economy and flow codes as text, prints a summary, and exits with a nonzero status if validation fails. It does not write files or load PostgreSQL.
+
 ## Connection settings
 
 For Power BI Desktop, use **Get data > PostgreSQL database** with:
@@ -107,7 +117,7 @@ Database credentials are initialized on the first start with an empty volume. Ed
 
 ## Next steps
 
-1. Add the Python ETL container and validate the reporting subset.
+1. Add the Python Compose service to run the validated reporting subset.
 2. Create PostgreSQL tables and a repeatable load without duplicate records.
 3. Add SQL reporting views and verify totals.
 4. Build a Power BI report with export trends, country comparisons, and trade balances.
