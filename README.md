@@ -4,6 +4,14 @@ A small data engineering and Power BI project using UNCTAD merchandise trade dat
 
 **Question:** How did Philippine exports and trade balance perform against Indonesia, Malaysia, Thailand, and Viet Nam from 2015 to 2024?
 
+## Dashboard preview
+
+![Power BI dashboard comparing exports, imports, and trade balances across five countries from 2015 to 2024](docs/images/dashboard.png)
+
+The [Power BI report](power_bi/PhilippineTradeTrends.pbix) includes country and year slicers, export/import/trade balance cards, an export trend chart, and a country trade balance comparison. Cards and charts respond to the selected countries and years. Dashboard values are in **USD billions**; the database stores **USD millions** (divide by 1,000 for the report).
+
+The screenshot shows all five countries for 2015–2024. Cards are cumulative totals for that selection, not Philippine-only or single-year values.
+
 ## Project scope
 
 - Five countries, ten years, exports and imports: 100 observations in the reporting subset.
@@ -14,10 +22,10 @@ A small data engineering and Power BI project using UNCTAD merchandise trade dat
 
 ```text
 Raw UNCTAD CSV -> Python ETL -> PostgreSQL -> Power BI Desktop
-                 (Docker)     (Docker)      (planned)
+                 (Docker)     (Docker)      (Windows)
 ```
 
-Docker Compose runs PostgreSQL 17 and a one-off Python ETL service. Python 3.12 uses pandas to validate the CSV and Psycopg to load it. PostgreSQL stores its data in a named Docker volume. Power BI Desktop will run on the host computer.
+Docker Compose runs PostgreSQL 17 and a one-off Python ETL service. Python 3.12 uses pandas to validate the CSV and Psycopg to load it. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer and imports the reporting view.
 
 ## Data
 
@@ -130,6 +138,25 @@ For Power BI Desktop, use **Get data > PostgreSQL database** with:
 
 The database port binds only to `127.0.0.1`. If port 5432 is already in use, change `POSTGRES_PORT` in `.env` and use the new port in Power BI. The ETL container connects to host `postgres` on port `5432` inside the Compose network.
 
+## Open and refresh the report
+
+1. Start Docker Desktop and run `docker compose run --build --rm etl` to load the data and create the view.
+2. Open `power_bi/PhilippineTradeTrends.pbix` in Power BI Desktop.
+3. Use the PostgreSQL connection settings above and enter your own local database credentials when prompted. If you changed the server or database, update it under **Transform data > Data source settings**.
+4. Select **Refresh**. The imported `trade_summary` view should contain 50 country–year rows.
+5. Use the country dropdown and year range to explore the report. Clear the country selection and select 2015–2024 to reproduce the preview.
+
+The report uses Import mode: database changes appear in Power BI after a refresh. PostgreSQL must be running for that refresh.
+
+## Validation and findings
+
+- The CSV validator accepts all 100 expected records and rejects missing combinations, duplicate keys, and missing or infinite measures.
+- Running the load twice leaves 100 database records. The reporting view has 50 unique country–year rows, and its export/import totals and balances were checked against the source table.
+- With Philippines and 2024 selected, dashboard cards match the database: exports **72.98**, imports **134.88**, and trade balance **−61.90 USD billion**.
+- The export chart shows strong growth in Viet Nam alongside comparatively flat Philippine exports. Over the full 2015–2024 selection, the Philippines has a cumulative merchandise trade deficit while the other four countries have cumulative surpluses.
+
+These are nominal merchandise trade comparisons. They exclude services and do not establish the causes of growth or trade imbalances.
+
 ## Useful commands
 
 ```powershell
@@ -142,10 +169,3 @@ docker compose down
 `stop` stops the container; `start` resumes it. `down` removes the containers and network while preserving the database volume; run `up -d --wait` to recreate them. Avoid `docker compose down -v` unless you intend to delete the database data.
 
 Database credentials are initialized on the first start with an empty volume. Editing them in `.env` later does not change credentials already stored in PostgreSQL.
-
-## Next steps
-
-1. Build a Power BI report with export trends, country comparisons, and trade balances.
-2. Document findings and add dashboard screenshots.
-
-This README will be updated as each milestone is implemented.
