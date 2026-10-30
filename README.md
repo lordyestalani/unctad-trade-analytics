@@ -17,7 +17,7 @@ Raw UNCTAD CSV -> Python ETL -> PostgreSQL -> Power BI Desktop
                  (planned)    (Docker)      (Windows)
 ```
 
-Docker Compose currently runs PostgreSQL 17. The Python ETL container, database tables, and Power BI report will be added in later steps. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer.
+Docker Compose currently runs PostgreSQL 17. A Dockerfile provides the Python 3.12 runtime; ETL dependencies, code, and the Compose service will be added next. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer.
 
 ## Data
 
@@ -56,6 +56,17 @@ Prerequisite: Docker Desktop running with Linux containers and Docker Compose av
    ```
 
    If you change the database or username in `.env`, use those values in the command.
+
+## Build the Python image
+
+The Dockerfile uses the official `python:3.12-slim-bookworm` image with `/app` as its working directory. Python writes logs immediately and skips bytecode files.
+
+```powershell
+docker build -t unctad-etl:local .
+docker run --rm unctad-etl:local
+```
+
+For now, the container prints its Python version and exits. It does not copy project files, install dependencies, or load data yet. No local Python installation is required.
 
 ## Connection settings
 
