@@ -105,6 +105,18 @@ docker compose exec postgres psql -U unctad -d unctad -c "SELECT COUNT(*) FROM t
 
 Expected count: `100`, including after a second run. `trade_value_million_usd` is in millions of US dollars; `world_share_pct` and `growth_yoy_pct` are percentages, so `5` means 5%.
 
+## Reporting view
+
+`sql/002_create_reporting_view.sql` defines `trade_summary`. The loader creates or replaces it in the same transaction as the data load. Run `docker compose run --build --rm etl` after changing the SQL or Python code.
+
+The view has 50 rows: one per country and year. It provides `economy_code`, `economy_name`, `year`, `exports_million_usd`, `imports_million_usd`, and `trade_balance_million_usd` (exports minus imports). All monetary values remain in millions of current US dollars. A missing flow produces a null value rather than being treated as zero.
+
+This is a saved query, not a separate stored copy of the data. It reflects the current `trade` table whenever queried. Select `public.trade_summary` when connecting Power BI.
+
+```powershell
+docker compose exec postgres psql -U unctad -d unctad -c "SELECT * FROM trade_summary WHERE economy_code = '608' ORDER BY year;"
+```
+
 ## Connection settings
 
 For Power BI Desktop, use **Get data > PostgreSQL database** with:
@@ -133,8 +145,7 @@ Database credentials are initialized on the first start with an empty volume. Ed
 
 ## Next steps
 
-1. Add SQL reporting views and verify totals.
-2. Build a Power BI report with export trends, country comparisons, and trade balances.
-3. Document findings and add dashboard screenshots.
+1. Build a Power BI report with export trends, country comparisons, and trade balances.
+2. Document findings and add dashboard screenshots.
 
 This README will be updated as each milestone is implemented.

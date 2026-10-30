@@ -19,6 +19,7 @@ def main() -> None:
         for row in trade[columns].itertuples(index=False, name=None)
     ]
     schema = Path(__file__).resolve().parents[1] / "sql/001_create_tables.sql"
+    reporting_view = schema.with_name("002_create_reporting_view.sql")
 
     with psycopg.connect(
         host=os.environ["PGHOST"],
@@ -45,8 +46,10 @@ def main() -> None:
                 """,
                 rows,
             )
+            cursor.execute(reporting_view.read_text(encoding="utf-8"))
 
     print(f"Loaded {len(rows)} records into trade (inserted or updated).")
+    print("Reporting view ready: trade_summary.")
 
 
 if __name__ == "__main__":
