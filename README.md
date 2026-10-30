@@ -17,7 +17,7 @@ Raw UNCTAD CSV -> Python ETL -> PostgreSQL -> Power BI Desktop
                  (planned)    (Docker)      (Windows)
 ```
 
-Docker Compose currently runs PostgreSQL 17. A Dockerfile provides the Python 3.12 runtime; ETL dependencies, code, and the Compose service will be added next. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer.
+Docker Compose currently runs PostgreSQL 17. A Dockerfile provides Python 3.12 with pandas for data preparation and Psycopg for PostgreSQL access. ETL code and the Compose service will be added next. PostgreSQL stores its data in a named Docker volume. Power BI Desktop runs on the host computer.
 
 ## Data
 
@@ -66,7 +66,16 @@ docker build -t unctad-etl:local .
 docker run --rm unctad-etl:local
 ```
 
-For now, the container prints its Python version and exits. It does not copy project files, install dependencies, or load data yet. No local Python installation is required.
+Dependencies are pinned in `requirements.txt`. Psycopg uses the binary extra so no compiler or separate PostgreSQL client library installation is needed.
+
+Verify the installed packages:
+
+```powershell
+docker run --rm unctad-etl:local python -c "import pandas, psycopg; print('pandas', pandas.__version__); print('psycopg', psycopg.__version__)"
+docker run --rm unctad-etl:local python -m pip check
+```
+
+For now, the default command prints the Python version and exits. The image does not load data yet. No local Python installation is required.
 
 ## Connection settings
 
